@@ -48,6 +48,15 @@ typedef struct Product
     char* ean; // B-9
 
     char* longTexts; // All T-6 entries where the longTextKey matches
+
+    uint8_t discountTypeA; // P-5
+    char* discountA; // P-6
+
+    uint8_t discountTypeB; // P-7
+    char* discountB; // P-8
+
+    uint8_t discountTypeC; // P-9
+    char* discountC; // P-10
 } Product;
 
 typedef struct PList
@@ -58,6 +67,11 @@ typedef struct PList
     struct PList* next;
 } PList;
 
+
+
+/*
+ Utility
+*/
 typedef struct {
     const char *start;
     size_t len;
@@ -103,9 +117,60 @@ size_t stringlength(const char *s)
     return len - 1;
 }
 
+void dump(PList* pList) {
+    PList* item = pList;
+    while (item!=NULL) {
+        if (item->product != NULL) {
+            printf("%s %s\n", item->longTextKey, item->product->name);
+        }
+        item = item->next;
+    }
+}
+
+size_t arraylength(char** array) {
+    size_t len = 0;
+    while (array[len] != NULL) {
+        len++;
+    }
+    
+    return len;
+}
+
+char* ccpy(char* origin) {
+    char* new = malloc(stringlength(origin)+1);
+    strcpy(new, origin);
+    return new;
+}
+
+char* concat(char* s1, char* s2, char* s3) {
+    uint8_t offset = 2;
+    if (stringlength(s1) == 0 && stringlength(s2) == 0) {
+        offset = 1;
+    }
+
+    char* total = malloc(stringlength(s1)+stringlength(s2)+stringlength(s3)+offset);
+    strcpy(total, s1);
+    strcat(total, s2);
+    if (offset == 2) strcat(total, " ");
+    strcat(total, s3);
+    return total;
+}
+
+void freeSet(char** set) {
+    size_t i = 0;
+    while (set[i] != NULL) {
+        free(set[i]);
+        i++;
+    }
+}
+
+
+/*
+ Line pre-processing
+*/
 void escapeSpecialChars(char** line, size_t len) {
     char x = (*line)[0];
-    char* lineToNow = malloc(len * sizeof(char));
+    char* lineToNow = malloc(len < 240 ? 240 : len);
     size_t newLength = len;
     size_t lineToNowIdx = 0;
     uint8_t delimsHave = 0;
@@ -168,15 +233,11 @@ void escapeSpecialChars(char** line, size_t len) {
     *line = finalLine;
 }
 
-size_t arraylength(char** array) {
-    size_t len = 0;
-    while (array[len] != NULL) {
-        len++;
-    }
-    
-    return len;
-}
 
+
+/*
+ List item creation
+*/
 void initPListItem(PList* item) {
     item->artNr = "";
     item->longTextKey = "";
@@ -200,54 +261,42 @@ void initPListItem(PList* item) {
     item->product->weight = 0;
     item->product->ean = "";
     item->product->longTexts = "";
+    item->product->discountTypeA = 0;
+    item->product->discountTypeB = 0;
+    item->product->discountTypeC = 0;
+    item->product->discountA = "";
+    item->product->discountB = "";
+    item->product->discountC = "";
 }
 
-char* ccpy(char* origin) {
-    char* new = malloc(stringlength(origin)+1);
-    strcpy(new, origin);
-    return new;
-}
 
-char* concat(char* s1, char* s2, char* s3) {
-    char* total = malloc(stringlength(s1)+stringlength(s2)+stringlength(s3)+2);
-    strcpy(total, s1);
-    strcat(total, s2);
-    strcat(total, " ");
-    strcat(total, s3);
-    return total;
-}
 
+/*
+ Set processing
+*/
 void build_T_Product(PList* item, char** tset, uint8_t init) {
     if (init != 0) {
         initPListItem(item);
     }
 
-    char* tset6 = ccpy(tset[6]);
-    char* tset9 = ccpy(tset[9]);
-
-    if ((item->product->name == NULL || stringlength(item->product->name) == 0) && strcmp("1", tset[4]) == 0) {
-        item->product->name = tset6;
-        item->product->longName1 = tset9;
+    if (item->product->longTexts == NULL || stringlength(item->product->longTexts) == 0) {
+        item->product->longTexts = concat(item->product->longTexts, tset[6], tset[9]);
     } else {
-        if (item->product->longTexts == NULL || stringlength(item->product->longTexts) == 0) {
-            item->product->longTexts = concat(item->product->longTexts, tset[6], tset[9]);
-        } else {
-            item->product->longTexts = concat(item->product->longTexts, tset[6], tset[9]);
-                // strcat(item->product->longTexts, strcat(strcat(tset[6], " "), strcat(tset[9], " ")));
-        }
+        //printf("%ld %ld %ld\n", stringlength(item->product->longTexts), stringlength(tset[6]), stringlength(tset[9]));
+        //char* total = malloc(stringlength(item->product->longTexts)+stringlength(tset[6])+stringlength(tset[9])+3);
+        //strcpy(total, item->product->longTexts);
+        //strcat(total, " ");
+        //strcat(total, tset[6]);
+        //strcat(total, " ");
+        //strcat(total, tset[9]);
+        //free(item->product->longTexts);
+        //item->product->longTexts = total;
+        item->product->longTexts = concat(item->product->longTexts, tset[6], tset[9]);
     }
 
     char* tset2 = ccpy(tset[2]);
     item->product->longTextKey = tset2;
     item->longTextKey = tset2;
-}
-
-void freeSet(char** set) {
-    size_t i = 0;
-    while (set[i] != NULL) {
-        free(set[i]);
-        i++;
-    }
 }
 
 PList* check_T_Set(char** line, PList* pList) {
@@ -264,7 +313,6 @@ PList* check_T_Set(char** line, PList* pList) {
         if (item->longTextKey != NULL && strcmp(item->longTextKey, tset[2]) == 0) {
             build_T_Product(item, tset, 0);
             found = 1;
-            break;
         }
         item = item->next;
     }
@@ -298,7 +346,7 @@ void build_A_Product(PList* item, char** aset, uint8_t init) {
         item->product->operationSign = ccpy(aset[1]);
     }
     
-    if (item->product->name == NULL || stringlength(item->product->name) == 0) {
+    if (item->product->name == NULL || stringlength(item->product->name) == 0 || strcmp(item->product->name, " ") == 0) {
         item->product->name = concat(item->product->name, aset[4], aset[5]);
     }
 
@@ -337,7 +385,8 @@ PList* check_A_Set(char** line, PList* pList) {
     char** aset = split(*line, ';');
 
     if (arraylength(aset) != 14) {
-        printf("PARSE ERROR %s", *line);
+        printf("PARSE ERROR %s\n", *line);
+        return NULL;
     }
 
     char* artNr = aset[2];
@@ -354,10 +403,26 @@ PList* check_A_Set(char** line, PList* pList) {
             continue;
         }
 
-        if ((strcmp(item->artNr, artNr) == 0) || (stringlength(aset[12]) > 1 && strcmp(aset[12], item->longTextKey)) == 0) {
-            build_A_Product(item, aset, 0);
-            found = 1;
-            break;
+        if (stringlength(aset[12]) > 0 && strcmp(aset[12], item->longTextKey) == 0) {
+            if (strcmp(item->artNr, artNr) == 0 || stringlength(item->artNr) == 0) {
+                build_A_Product(item, aset, 0);
+                found = 1;
+                break;
+            } else {
+                // Multiple products using this longTextKey
+                PList* copiedNewItem = malloc(sizeof(PList));
+                build_A_Product(copiedNewItem, aset, 1);
+                copiedNewItem->product->longTexts = item->product->longTexts;
+                if (stringlength(copiedNewItem->product->name) == 0 || strcmp(copiedNewItem->product->name, "") == 0) {
+                    copiedNewItem->product->name = item->product->name;
+                }
+                if (stringlength(copiedNewItem->product->longName1) == 0) {
+                    copiedNewItem->product->longName1 = item->product->longName1;
+                }
+                freeSet(aset);
+                free(aset);
+                return copiedNewItem;
+            }
         }
         item = item->next;
     }
@@ -376,6 +441,86 @@ PList* check_A_Set(char** line, PList* pList) {
     return NULL;
 }
 
+void build_P_Product(PList* item, char** adjustedPset, uint8_t init) {
+    if (init != 0) {
+        initPListItem(item);
+    }
+
+    if (stringlength(item->artNr) == 0) {
+        item->artNr = adjustedPset[0];
+        item->product->artNr = adjustedPset[0];
+    }
+
+    item->product->isPriceExclVAT = ccpy(adjustedPset[1]);
+    item->product->price = atoi(adjustedPset[2]);
+    item->product->discountTypeA = atoi(adjustedPset[3]);
+    item->product->discountA = adjustedPset[4];
+    item->product->discountTypeB = atoi(adjustedPset[3]);
+    item->product->discountB = adjustedPset[4];
+    item->product->discountTypeC = atoi(adjustedPset[3]);
+    item->product->discountC = adjustedPset[4];
+}
+
+PList* check_Single_P_Set(char** pset, PList* pList) {
+    uint8_t found = 0;
+    PList* item = pList;
+    while (item != NULL) {
+        if (item->artNr == NULL) {
+            item = item->next;
+            continue;
+        }
+
+        if (strcmp(item->artNr, pset[0]) == 0) {
+            build_P_Product(item, pset, 0);
+            found = 1;
+            break;
+        }
+        item = item->next;
+    }
+    
+    if (found == 0) {
+        PList* newItem = malloc(sizeof(PList));
+        build_P_Product(newItem, pset, 1);
+        return newItem;
+    }
+
+    return NULL;
+}
+
+PList* check_P_Set(char** line, PList* pList) {
+    char** pset = split(*line, ';');
+
+    if (arraylength(pset) < 12) {
+        printf("PARSE ERROR %s\n", *line);
+        return NULL;
+    }
+
+    pset += 2;
+    if (arraylength(pset) % 9 != 1) {
+        printf("P-PARSE ERROR (2) %s\n", *line);
+        return NULL;
+    }
+
+    PList* newItems = NULL;
+    while (arraylength(pset) > 1 && arraylength(pset) % 9 == 1) {
+        PList* newItem = check_Single_P_Set(pset, pList);
+        if (newItem != NULL) {
+            if (newItems != NULL) {
+                newItem->next = newItems;
+            }
+            newItems = newItem;
+        }
+
+        pset += 9;
+    }
+
+    return newItems;
+}
+
+
+/*
+ File writings
+*/
 char* parseString(char* str) {
     return str == NULL ? "" : str;
 }
@@ -424,53 +569,53 @@ void writeToFile(PList* items) {
     fclose(fp);
 }
 
-void dump(PList* pList) {
-    PList* item = pList;
-    while (item!=NULL) {
-        if (item->product != NULL) {
-            printf("%s %s\n", item->longTextKey, item->product->name);
-        }
-        item = item->next;
-    }
-}
-
-int main() {
-    FILE* fp = fopen("datanorm.001.html", "r");
-    //fp = fopen("testnorm.html", "r");
-    if (fp == NULL) {
-        exit(EXIT_FAILURE);
-    }
-
+int main(int argc, char* argv[]) {
     PList* pList = malloc(sizeof(PList));
     pList->next = NULL;
     pList->product = NULL;
 
-    char* line = NULL;
-    size_t len = 0;
-    uint32_t counter = 0;
-    while (getline(&line, &len, fp) != -1 && counter < 500000) {
-        escapeSpecialChars(&line, len);
-
-        char setId = line[0];
-        PList* newlyCreated = NULL;
-        if (setId == 'T') {
-            newlyCreated = check_T_Set(&line, pList);
-        } else if (setId == 'A') {
-            newlyCreated = check_A_Set(&line, pList);
+    for (int i = 1; i < argc; i++) {
+        FILE* fp = fopen(argv[i], "r");
+        if (fp == NULL) {
+            exit(EXIT_FAILURE);
         }
 
-        if (newlyCreated != NULL) {
-            newlyCreated->next = pList;
-            pList = newlyCreated;
+        char* line = NULL;
+        size_t len = 0;
+        while (getline(&line, &len, fp) != -1) {
+            escapeSpecialChars(&line, len);
+
+            char setId = line[0];
+            PList* newlyCreated = NULL;
+            if (setId == 'T') {
+                newlyCreated = check_T_Set(&line, pList);
+            } else if (setId == 'A') {
+                newlyCreated = check_A_Set(&line, pList);
+            } else if (setId == 'P') {
+                newlyCreated = check_P_Set(&line, pList);
+            }
+
+            if (newlyCreated != NULL) {
+                if (newlyCreated->next == NULL) {
+                    newlyCreated->next = pList;
+                    pList = newlyCreated;
+                } else {
+                    PList* lastOfNew = newlyCreated->next;
+                    while (lastOfNew->next != NULL) {
+                        lastOfNew = lastOfNew->next;
+                    }
+                    lastOfNew->next = pList;
+                    pList = newlyCreated;
+                }
+            }
+
+            free(line);
+            len = 0;
         }
 
-        counter++;
-        free(line);
-        len = 0;
+        fclose(fp);
+        if (line) free(line);
     }
-
-    fclose(fp);
-    if (line) free(line);
-
+    
     writeToFile(pList);
 }
