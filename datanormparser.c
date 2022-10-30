@@ -204,8 +204,8 @@ void escapeSpecialChars(char** line, size_t len) {
             }
 
             char* newLineToNow = malloc(++newLength);
-            strcpy(newLineToNow, lineToNow);
-            strcpy(lineToNow, newLineToNow);
+            strncpy(newLineToNow, lineToNow, newLength);
+            strncpy(lineToNow, newLineToNow, len < 240 ? 240 : len);
 
             lineToNow[lineToNowIdx++] = replaceStr[0];
             lineToNow[lineToNowIdx++] = replaceStr[1];
@@ -282,16 +282,14 @@ void build_T_Product(PList* item, char** tset, uint8_t init) {
     if (item->product->longTexts == NULL || stringlength(item->product->longTexts) == 0) {
         item->product->longTexts = concat(item->product->longTexts, tset[6], tset[9]);
     } else {
-        //printf("%ld %ld %ld\n", stringlength(item->product->longTexts), stringlength(tset[6]), stringlength(tset[9]));
-        //char* total = malloc(stringlength(item->product->longTexts)+stringlength(tset[6])+stringlength(tset[9])+3);
-        //strcpy(total, item->product->longTexts);
-        //strcat(total, " ");
-        //strcat(total, tset[6]);
-        //strcat(total, " ");
-        //strcat(total, tset[9]);
-        //free(item->product->longTexts);
-        //item->product->longTexts = total;
-        item->product->longTexts = concat(item->product->longTexts, tset[6], tset[9]);
+        char* total = malloc(stringlength(item->product->longTexts)+stringlength(tset[6])+stringlength(tset[9])+3);
+        strcpy(total, item->product->longTexts);
+        strcat(total, " ");
+        strcat(total, tset[6]);
+        strcat(total, " ");
+        strcat(total, tset[9]);
+        free(item->product->longTexts);
+        item->product->longTexts = total;
     }
 
     char* tset2 = ccpy(tset[2]);
