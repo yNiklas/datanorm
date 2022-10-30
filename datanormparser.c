@@ -29,7 +29,7 @@ typedef struct Product
     // Unit of measure (Mengeneinheit Stück, Liter, Stunden, ...)
     char* measure; // A-8
 
-    uint32_t price; // A-9 or P-4
+    uint64_t price; // A-9 or P-4
 
     // Refers to the RAB file
     char* discountGroup; // A-10
@@ -251,6 +251,7 @@ void initPListItem(PList* item) {
     item->product->isPriceExclVAT = "";
     item->product->priceMeasure = 0;
     item->product->measure = "";
+    item->product->price = 0;
     item->product->discountGroup = "";
     item->product->articleGroup = "";
     item->product->longTextKey = "";
@@ -361,7 +362,7 @@ void build_A_Product(PList* item, char** aset, uint8_t init) {
     }
     
     if (item->product->price <= 0) {
-        item->product->price = atoi(aset[9]);
+        item->product->price = atol(aset[9]);
     }
     
     if (item->product->discountGroup == NULL || stringlength(item->product->discountGroup) == 0) {
@@ -450,7 +451,7 @@ void build_P_Product(PList* item, char** adjustedPset, uint8_t init) {
     }
 
     item->product->isPriceExclVAT = ccpy(adjustedPset[1]);
-    item->product->price = atoi(adjustedPset[2]);
+    item->product->price = atol(adjustedPset[2]);
     item->product->discountTypeA = atoi(adjustedPset[3]);
     item->product->discountA = adjustedPset[4];
     item->product->discountTypeB = atoi(adjustedPset[3]);
@@ -542,7 +543,7 @@ void writeToFile(PList* items) {
             continue;
         }
 
-        fprintf(fp, "%s;%s;%s;%s;%s;%d;%s;%d;%s;%s;%s;%s;%s;%d;%d;%d;%s;%s\n",
+        fprintf(fp, "%s;%s;%s;%s;%s;%d;%s;%ld;%s;%s;%s;%s;%s;%d;%d;%d;%s;%s\n",
             parseString(item->artNr),
             parseString(item->product->name),
             parseString(item->product->longName1),
