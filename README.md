@@ -19,3 +19,7 @@ Allowed set order:
  + Discount groups
  + Article groups
  + Sleep 😴
+ 
+ ## FAQ
+ ### Why C?
+ Idk, perfomance oder so
