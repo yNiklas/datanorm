@@ -135,7 +135,7 @@ void escapeSpecialChars(char** line, size_t len) {
                 case -99: replaceStr = "Ø"; break;
                 case -77: replaceStr = "³"; break;
                 case -3: replaceStr = "²"; break;
-                default: /*printf("unknown %d\n", x);*/ break;
+                default: printf("unknown %d %s\n", x, *line); break;
             }
 
             char* newLineToNow = malloc(++newLength);
@@ -149,13 +149,23 @@ void escapeSpecialChars(char** line, size_t len) {
                 delimsHave++;
             }
             if (x == '\0') {
-                lineToNow[lineToNowIdx++] = ' ';
+                // lineToNow[lineToNowIdx++] = ' ';
             } else {
                 lineToNow[lineToNowIdx++] = x;
             }
         }
     }
-    *line = lineToNow;
+
+    char* finalLine = malloc(lineToNowIdx);
+    strncpy(finalLine, lineToNow, lineToNowIdx);
+    free(lineToNow);
+    for (size_t i = 0; i < lineToNowIdx-1; i++) {
+        if (finalLine[i] == '\0') {
+            finalLine[i] = ' ';
+        }
+    }
+    finalLine[lineToNowIdx-1] = '\0';
+    *line = finalLine;
 }
 
 size_t arraylength(char** array) {
@@ -262,6 +272,8 @@ PList* check_T_Set(char** line, PList* pList) {
     if (found == 0) {
         PList* newPListItem = malloc(sizeof(PList));
         build_T_Product(newPListItem, tset, 1);
+        freeSet(tset);
+        free(tset);
         return newPListItem;
     }
 
@@ -330,7 +342,7 @@ PList* check_A_Set(char** line, PList* pList) {
 
     char* artNr = aset[2];
     if (artNr == 0 || stringlength(artNr) <= 1) {
-        printf("WARN: A-Set line without Article Number");
+        printf("WARN: A-Set line without Article Number\n");
         return NULL;
     }
 
@@ -353,6 +365,8 @@ PList* check_A_Set(char** line, PList* pList) {
     if (found == 0) {
         PList* newPListItem = malloc(sizeof(PList));
         build_A_Product(newPListItem, aset, 1);
+        freeSet(aset);
+        free(aset);
         return newPListItem;
     }
 
@@ -451,7 +465,7 @@ int main() {
         }
 
         counter++;
-        line = NULL;
+        free(line);
         len = 0;
     }
 
