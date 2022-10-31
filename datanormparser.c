@@ -411,6 +411,13 @@ PList* check_A_Set(char** line, PList* pList) {
             continue;
         }
 
+        if (strcmp(aset[2], item->artNr) == 0) {
+            build_A_Product(item, aset, 0);
+            freeSet(aset);
+            free(aset);
+            return NULL;
+        }
+
         if (stringlength(aset[12]) > 0 && strcmp(aset[12], item->longTextKey) == 0) {
             if (strcmp(item->artNr, artNr) == 0 || stringlength(item->artNr) == 0) {
                 build_A_Product(item, aset, 0);
