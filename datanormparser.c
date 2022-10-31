@@ -13,8 +13,10 @@ typedef struct Product
     datatype name // Datensatz-Spalte
     */
     char* artNr; // A-2 or B-2
-    char* name; // A-4+A-5 or T[0]-6
-    char* longName1; // A-5
+    char* name1; // A-4
+    char* name2; // A-5
+    char* longName1; // T[0]-6
+    char* longName2; // T[0]-9
     char* operationSign; // A-1 or B-1
 
     // in Datanorm: 1=Brutto, 2=Netto
@@ -121,7 +123,7 @@ void dump(PList* pList) {
     PList* item = pList;
     while (item!=NULL) {
         if (item->product != NULL) {
-            printf("%s %s\n", item->longTextKey, item->product->name);
+            printf("%s %s\n", item->longTextKey, item->product->name1);
         }
         item = item->next;
     }
@@ -245,8 +247,10 @@ void initPListItem(PList* item) {
     item->next = NULL;
 
     item->product->artNr = "";
-    item->product->name = "";
+    item->product->name1 = "";
+    item->product->name2 = "";
     item->product->longName1 = "";
+    item->product->longName2 = "";
     item->product->operationSign = "";
     item->product->isPriceExclVAT = "";
     item->product->priceMeasure = 0;
@@ -291,6 +295,11 @@ void build_T_Product(PList* item, char** tset, uint8_t init) {
         strcat(total, tset[9]);
         free(item->product->longTexts);
         item->product->longTexts = total;
+    }
+
+    if (strcmp(tset[4], "1") == 0) {
+        item->product->longName1 = ccpy(tset[6]);
+        item->product->longName2 = ccpy(tset[9]);
     }
 
     char* tset2 = ccpy(tset[2]);
@@ -345,12 +354,12 @@ void build_A_Product(PList* item, char** aset, uint8_t init) {
         item->product->operationSign = ccpy(aset[1]);
     }
     
-    if (item->product->name == NULL || stringlength(item->product->name) == 0 || strcmp(item->product->name, " ") == 0) {
-        item->product->name = concat(item->product->name, aset[4], aset[5]);
+    if (item->product->name1 == NULL || stringlength(item->product->name1) == 0 || strcmp(item->product->name1, " ") == 0) {
+        item->product->name1 = ccpy(aset[4]);
     }
 
-    if (item->product->longName1 == NULL || stringlength(item->product->longName1) == 0) {
-        item->product->longName1 = ccpy(aset[5]);
+    if (stringlength(item->product->name2) == 0 || strcmp(item->product->name2, " ") == 0) {
+        item->product->name2 = ccpy(aset[5]);
     }
     
     if (aset[6] != NULL && stringlength(aset[6]) > 0) {
@@ -370,7 +379,7 @@ void build_A_Product(PList* item, char** aset, uint8_t init) {
     }
     
     if (item->product->articleGroup == NULL || stringlength(item->product->articleGroup) == 0) {
-        item->product->discountGroup = ccpy(aset[11]);
+        item->product->articleGroup = ccpy(aset[11]);
     }
     
     if (stringlength(item->longTextKey) == 0) {
@@ -412,11 +421,18 @@ PList* check_A_Set(char** line, PList* pList) {
                 PList* copiedNewItem = malloc(sizeof(PList));
                 build_A_Product(copiedNewItem, aset, 1);
                 copiedNewItem->product->longTexts = item->product->longTexts;
-                if (stringlength(copiedNewItem->product->name) == 0 || strcmp(copiedNewItem->product->name, "") == 0) {
-                    copiedNewItem->product->name = item->product->name;
+                if (stringlength(copiedNewItem->product->name1) == 0 || strcmp(copiedNewItem->product->name1, "") == 0) {
+                    copiedNewItem->product->name1 = item->product->name1;
+                }
+                if (stringlength(copiedNewItem->product->name2) == 0 || strcmp(copiedNewItem->product->name2, "") == 0) {
+                    copiedNewItem->product->name2 = item->product->name2;
                 }
                 if (stringlength(copiedNewItem->product->longName1) == 0) {
                     copiedNewItem->product->longName1 = item->product->longName1;
+                    
+                }
+                if (stringlength(copiedNewItem->product->longName2) == 0) {
+                    copiedNewItem->product->longName2 = item->product->longName2;
                 }
                 freeSet(aset);
                 free(aset);
@@ -530,8 +546,8 @@ void writeToFile(PList* items) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(fp, "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n",
-        "ArtNr", "Name", "Langname", "Verarbeitungszeichen", "Preiskennzeichen",
+    fprintf(fp, "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n",
+        "ArtNr", "Name", "Name2", "Langname", "Langname2", "Verarbeitungszeichen", "Preiskennzeichen",
         "Preiseinheit", "Mengeneinheit", "Preis", "Rabattgruppe", "Artikelgruppe", "Langtextschlüssel",
         "Matchcode", "Alternative ArtNr", "Katalogseite", "Kupfer-Kennzahl", "Kupfergewicht", "EAN",
         "Zusatzinformationen");
@@ -543,10 +559,12 @@ void writeToFile(PList* items) {
             continue;
         }
 
-        fprintf(fp, "%s;%s;%s;%s;%s;%d;%s;%ld;%s;%s;%s;%s;%s;%d;%d;%d;%s;%s\n",
+        fprintf(fp, "%s;%s;%s;%s;%s;%s;%s;%d;%s;%ld;%s;%s;%s;%s;%s;%d;%d;%d;%s;%s\n",
             parseString(item->artNr),
-            parseString(item->product->name),
+            parseString(item->product->name1),
+            parseString(item->product->name2),
             parseString(item->product->longName1),
+            parseString(item->product->longName2),
             parseString(item->product->operationSign),
             parseString(item->product->isPriceExclVAT),
             item->product->priceMeasure,
