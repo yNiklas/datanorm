@@ -2,7 +2,12 @@
 Datanorm -> CSV (; separated and stored as txt)
 
 Allowed set order:
- + T -> A -> P
+ + R -> T -> A -> B -> P
+ 
+Specifications via DATANORM:
+ + R set is located in a separate file (.RAB)
+ + If B entry is present for an article, the B entry is directly after the A entry
+ + P set is located in a separate file (DATPREIS)
 
 ## Execution
 `gcc datanormparser.c -o dnp`
@@ -15,8 +20,7 @@ Allowed set order:
 `./dnp datanorm.001.html datanorm.006.html datpreis.006.html`
 
 ## ToDos:
- + Write out all fields
- + Discount groups
+ + Write out all fields (incl. discount types)
  + Article groups
  + Sleep 😴
  
