@@ -17,7 +17,7 @@ typedef struct Product
     char* name2; // A-5
     char* longName1; // T[0]-6
     char* longName2; // T[0]-9
-    char* operationSign; // A-1 or B-1
+    char* operationSign; // A-1 or B-1 or T-1
 
     // in Datanorm: 1=Brutto, 2=Netto
     char* isPriceExclVAT; // A-6 or P-3
@@ -35,6 +35,8 @@ typedef struct Product
 
     // Refers to the RAB file
     char* discountGroup; // A-10
+    uint8_t discountType; // R-3
+    uint64_t discount; // R-4
 
     // Refers to the WRG file
     char* articleGroup; // A-11
@@ -53,12 +55,15 @@ typedef struct Product
 
     uint8_t discountTypeA; // P-5
     char* discountA; // P-6
+    uint64_t discountAValue; // P-6 or corresponding discount groups value if discountC is a discount group identifier
 
     uint8_t discountTypeB; // P-7
     char* discountB; // P-8
+    uint64_t discountBValue; // P-8 or corresponding discount groups value if discountC is a discount group identifier
 
     uint8_t discountTypeC; // P-9
     char* discountC; // P-10
+    uint64_t discountCValue; // P-10 or corresponding discount groups value if discountC is a discount group identifier
 } Product;
 
 typedef struct PList
@@ -187,13 +192,11 @@ void escapeSpecialChars(char** line, size_t len) {
     for (int i = 0; i<len&&(x!='\0'||delimsHave<delimsShould); i++) {
         x = (*line)[i];
         if (x<0) {
-            char* replaceStr = "ü";
+            char* replaceStr = "  ";
             switch (x) {
-                case -83:
                 case -127: replaceStr = "ü"; break;
                 case -124: replaceStr = "ä"; break;
                 case -108: replaceStr = "ö"; break;
-                case -82:
                 case -31: replaceStr = "ß"; break;
                 case -103: replaceStr = "Ö"; break;
                 case -102: replaceStr = "Ü"; break;
@@ -257,6 +260,7 @@ void initPListItem(PList* item) {
     item->product->measure = "";
     item->product->price = 0;
     item->product->discountGroup = "";
+    item->product->discount = 0;
     item->product->articleGroup = "";
     item->product->longTextKey = "";
     item->product->matchcode = "";
@@ -272,6 +276,9 @@ void initPListItem(PList* item) {
     item->product->discountA = "";
     item->product->discountB = "";
     item->product->discountC = "";
+    item->product->discountAValue = 0;
+    item->product->discountBValue = 0;
+    item->product->discountCValue = 0;
 }
 
 
@@ -301,6 +308,8 @@ void build_T_Product(PList* item, char** tset, uint8_t init) {
         item->product->longName1 = ccpy(tset[6]);
         item->product->longName2 = ccpy(tset[9]);
     }
+
+    item->product->operationSign = ccpy(tset[1]);
 
     char* tset2 = ccpy(tset[2]);
     item->product->longTextKey = tset2;
@@ -350,7 +359,7 @@ void build_A_Product(PList* item, char** aset, uint8_t init) {
         item->product->artNr = aset2;
     }
     
-    if (item->product->operationSign == NULL || stringlength(item->product->operationSign) == 0) {
+    if (stringlength(aset[1]) != 0) {
         item->product->operationSign = ccpy(aset[1]);
     }
     
@@ -475,12 +484,18 @@ void build_P_Product(PList* item, char** adjustedPset, uint8_t init) {
 
     item->product->isPriceExclVAT = ccpy(adjustedPset[1]);
     item->product->price = atol(adjustedPset[2]);
+
     item->product->discountTypeA = atoi(adjustedPset[3]);
-    item->product->discountA = adjustedPset[4];
+    item->product->discountA = ccpy(adjustedPset[4]);
+    if (item->product->discountTypeA != 0) item->product->discountAValue = atol(adjustedPset[4]);
+
     item->product->discountTypeB = atoi(adjustedPset[3]);
-    item->product->discountB = adjustedPset[4];
+    item->product->discountB = ccpy(adjustedPset[4]);
+    if (item->product->discountTypeB != 0) item->product->discountBValue = atol(adjustedPset[4]);
+
     item->product->discountTypeC = atoi(adjustedPset[3]);
-    item->product->discountC = adjustedPset[4];
+    item->product->discountC = ccpy(adjustedPset[4]);
+    if (item->product->discountTypeC != 0) item->product->discountCValue = atol(adjustedPset[4]);
 }
 
 PList* check_Single_P_Set(char** pset, PList* pList) {
@@ -539,6 +554,88 @@ PList* check_P_Set(char** line, PList* pList) {
     return newItems;
 }
 
+PList* check_R_Set(char** line, PList* pList) {
+    char** rset = split(*line, ';');
+
+    if (arraylength(rset) != 7) {
+        printf("R-PARSE ERROR %s\n", *line);
+        return NULL;
+    }
+
+    PList* item = pList;
+    while (item != NULL) {
+        if (item->product == NULL) {
+            item = item->next;
+            continue;
+        }
+
+        if (strcmp(item->product->discountGroup, rset[2]) == 0) {
+            item->product->discountType = atoi(rset[3]);
+            item->product->discount = atol(rset[4]);
+        }
+        if (item->product->discountTypeA == 0 && strcmp(item->product->discountA, rset[2]) == 0) {
+            item->product->discountA = ccpy(rset[4]);
+            item->product->discountAValue = atol(rset[4]);
+        }
+        if (item->product->discountTypeB == 0 && strcmp(item->product->discountB, rset[2]) == 0) {
+            item->product->discountB = ccpy(rset[4]);
+            item->product->discountBValue = atol(rset[4]);
+        }
+        if (item->product->discountTypeC == 0 && strcmp(item->product->discountC, rset[2]) == 0) {
+            item->product->discountC = ccpy(rset[4]);
+            item->product->discountCValue = atol(rset[4]);
+        }
+
+        item = item->next;
+    }
+
+    freeSet(rset);
+    free(rset);
+
+    return NULL;
+}
+
+void build_B_Product(PList* item, char** bset) {
+    if (item->product == NULL) {
+        return;
+    }
+
+    if (stringlength(item->product->operationSign) == 0) {
+        item->product->operationSign = ccpy(bset[1]);
+    }
+
+    item->product->matchcode = ccpy(bset[3]);
+    item->product->alternativeArtNr = ccpy(bset[4]);
+    item->product->catalogPage = atoi(bset[5]);
+    item->product->cuIdentifier = atoi(bset[7]);
+    item->product->weight = atoi(bset[8]);
+    item->product->ean = ccpy(bset[9]);
+}
+
+PList* check_B_Set(char** line, PList* pList) {
+    char** bset = split(*line, ';');
+
+    if (arraylength(bset) != 17) {
+        printf("B-PARSE ERROR %s\n", *line);
+        return NULL;
+    }
+
+    PList* item = pList;
+    while (item != NULL) {
+        if (item->artNr == NULL) {
+            item = item->next;
+            continue;
+        }
+
+        if (strcmp(item->artNr, bset[2]) == 0) {
+            build_B_Product(item, bset);
+            return NULL;
+        }
+
+        item = item->next;
+    }
+    return NULL;
+}
 
 /*
  File writings
@@ -553,10 +650,11 @@ void writeToFile(PList* items) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(fp, "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n",
+    fprintf(fp, "%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s\n",
         "ArtNr", "Name", "Name2", "Langname", "Langname2", "Verarbeitungszeichen", "Preiskennzeichen",
         "Preiseinheit", "Mengeneinheit", "Preis", "Rabattgruppe", "Artikelgruppe", "Langtextschlüssel",
         "Matchcode", "Alternative ArtNr", "Katalogseite", "Kupfer-Kennzahl", "Kupfergewicht", "EAN",
+        "Rabatt", "RabattA", "RabattB", "RabattC",
         "Zusatzinformationen");
 
     PList* item = items;
@@ -566,7 +664,7 @@ void writeToFile(PList* items) {
             continue;
         }
 
-        fprintf(fp, "%s;%s;%s;%s;%s;%s;%s;%d;%s;%ld;%s;%s;%s;%s;%s;%d;%d;%d;%s;%s\n",
+        fprintf(fp, "%s;%s;%s;%s;%s;%s;%s;%d;%s;%ld;%s;%s;%s;%s;%s;%d;%d;%d;%s;%ld;%ld;%ld;%ld;%s\n",
             parseString(item->artNr),
             parseString(item->product->name1),
             parseString(item->product->name2),
@@ -586,6 +684,10 @@ void writeToFile(PList* items) {
             item->product->cuIdentifier,
             item->product->weight,
             parseString(item->product->ean),
+            item->product->discount,
+            item->product->discountAValue,
+            item->product->discountBValue,
+            item->product->discountCValue,
             parseString(item->product->longTexts));
         item = item->next;
     }
@@ -617,6 +719,10 @@ int main(int argc, char* argv[]) {
                 newlyCreated = check_A_Set(&line, pList);
             } else if (setId == 'P') {
                 newlyCreated = check_P_Set(&line, pList);
+            } else if (setId == 'R') {
+                check_R_Set(&line, pList);
+            } else if (setId == 'B') {
+                check_B_Set(&line, pList);
             }
 
             if (newlyCreated != NULL) {
